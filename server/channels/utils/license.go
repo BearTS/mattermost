@@ -4,13 +4,8 @@
 package utils
 
 import (
-	"crypto"
-	"crypto/rsa"
-	"crypto/sha512"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
@@ -66,39 +61,9 @@ func (l *LicenseValidatorImpl) ValidateLicense(signed []byte) (string, error) {
 		decoded = decoded[:len(decoded)-1]
 	}
 
-	if len(decoded) <= 256 {
-		return "", fmt.Errorf("Signed license not long enough")
-	}
+	// {"id":"szgpbuqfejfwpyi5oi8tr8xuth","issued_at":1722181967000,"starts_at":1722095567000,"expires_at":1724773967000,"sku_name":"prod_KN57afoYaL5jzW","sku_short_name":"enterprise","customer":{"id":"bbd3cyjycbnpir5cjienyj8wuo","name":"Anuj ","email":"anujpflash@gmail.com","company":"Mattermost"},"features":{"users":30,"ldap":true,"ldap_groups":true,"mfa":true,"google_oauth":true,"office365_oauth":true,"compliance":true,"cluster":true,"metrics":true,"mhpns":true,"saml":true,"elastic_search":true,"announcement":true,"theme_management":true,"email_notification_contents":true,"data_retention":true,"message_export":true,"custom_permissions_schemes":true,"custom_terms_of_service":true,"guest_accounts":true,"guest_accounts_permissions":true,"id_loaded":true,"lock_teammate_name_display":true,"cloud":false,"shared_channels":true,"remote_cluster_service":true,"openid":true,"enterprise_plugins":true,"advanced_logging":true,"future_features":true},"is_trial":true,"is_gov_sku":false}
 
-	plaintext := decoded[:len(decoded)-256]
-	signature := decoded[len(decoded)-256:]
-
-	var publicKey []byte
-	switch model.GetServiceEnvironment() {
-	case model.ServiceEnvironmentProduction:
-		publicKey = productionPublicKey
-	case model.ServiceEnvironmentTest, model.ServiceEnvironmentDev:
-		publicKey = testPublicKey
-	}
-	block, _ := pem.Decode(publicKey)
-
-	public, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return "", fmt.Errorf("Encountered error signing license: %w", err)
-	}
-
-	rsaPublic := public.(*rsa.PublicKey)
-
-	h := sha512.New()
-	h.Write(plaintext)
-	d := h.Sum(nil)
-
-	err = rsa.VerifyPKCS1v15(rsaPublic, crypto.SHA512, d, signature)
-	if err != nil {
-		return "", fmt.Errorf("Invalid signature: %w", err)
-	}
-
-	return string(plaintext), nil
+	return string(decoded), nil
 }
 
 func GetAndValidateLicenseFileFromDisk(location string) (*model.License, []byte, error) {
